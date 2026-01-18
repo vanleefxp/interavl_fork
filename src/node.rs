@@ -13,6 +13,7 @@ pub(super) enum RemoveResult<T> {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct Node<R, V> {
     /// Child nodes pointers.
     left: Option<Box<Node<R, V>>>,
@@ -509,23 +510,22 @@ where
 
     // And rebalance the subtree.
     match balance(v) {
-        (2..) if v.left().map(balance).unwrap_or_default() >= 0 => {
+        2.. if v.left().map(balance).unwrap_or_default() >= 0 => {
             rotate_right(v);
         },
-        (2..) => {
+        2.. => {
             v.left_mut().map(rotate_left);
             rotate_right(v);
         },
-        (..=-2) if v.right().map(balance).unwrap_or_default() <= 0 => {
+        ..=-2 if v.right().map(balance).unwrap_or_default() <= 0 => {
             rotate_left(v);
         },
-        (..=-2) => {
+        ..=-2 => {
             v.right_mut().map(rotate_right);
             rotate_left(v);
         },
 
-        #[allow(clippy::manual_range_patterns)]
-        -1 | 0 | 1 => { /* balanced */ }
+        _ => { /* balanced */ }
     }
 
     update_subtree_max(v);

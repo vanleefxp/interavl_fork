@@ -13,6 +13,11 @@ categories = ["data-structures", "algorithms", "date-and-time"]
 exclude = [".github"]
 
 [dependencies]
+serde = { version = "1.0.228", optional = true }
+
+
+[features]
+serde = ["dep:serde"]
 
 [dev-dependencies]
 criterion = "0.8.1"

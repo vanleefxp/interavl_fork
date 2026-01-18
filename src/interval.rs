@@ -6,6 +6,7 @@ use std::{cmp::Ordering, fmt::Display, ops::Range};
 /// An [`Interval`] is ordered by the [`Range`] lower bound, and tie-braked with
 /// the upper bound.
 #[derive(Debug, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct Interval<T>(Range<T>);
 
 impl<T> Interval<T> {
