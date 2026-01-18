@@ -369,7 +369,7 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::test_utils::{arbitrary_range, Lfsr, NodeFilterCount};
+    use crate::{interval, test_utils::{Lfsr, NodeFilterCount, arbitrary_range}};
 
     #[test]
     fn test_insert_contains() {
@@ -390,6 +390,24 @@ mod tests {
         assert!(!t.contains_key(&(43..45)));
 
         validate_tree_structure(&t);
+    }
+
+    #[test]
+    fn test_same_interval() {
+        let mut t = IntervalTree::default();
+        t.insert(1..2, 0);
+        t.insert(2..4, 1);
+        t.insert(2..5, 2);
+        t.insert(2..4, 3);
+
+        for (interval, &value) in t.iter() {
+            println!("{}..{} {}", interval.start, interval.end, value);
+        }
+
+        println!();
+        for (interval, &value) in t.iter_contains(&(2..3)) {
+            println!("{}..{} {}", interval.start, interval.end, value);
+        }
     }
 
     /// Ensure inserting references as the tree value is supported.

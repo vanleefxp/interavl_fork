@@ -53,12 +53,14 @@ impl<R, V> Node<R, V> {
     where
         R: Ord + Clone,
     {
+        use Ordering::*;
         let child = match interval.cmp(&self.interval) {
-            Ordering::Less => &mut self.left,
-            Ordering::Equal => {
-                return Some(std::mem::replace(&mut self.value, value));
-            }
-            Ordering::Greater => &mut self.right,
+            // Less => &mut self.left,
+            // Equal => {
+            //     return Some(std::mem::replace(&mut self.value, value));
+            // }
+            Less | Equal => &mut self.left,
+            Greater => &mut self.right,
         };
 
         let inserted = match child {
@@ -509,18 +511,18 @@ where
     match balance(v) {
         (2..) if v.left().map(balance).unwrap_or_default() >= 0 => {
             rotate_right(v);
-        }
+        },
         (2..) => {
             v.left_mut().map(rotate_left);
             rotate_right(v);
-        }
+        },
         (..=-2) if v.right().map(balance).unwrap_or_default() <= 0 => {
             rotate_left(v);
-        }
+        },
         (..=-2) => {
             v.right_mut().map(rotate_right);
             rotate_left(v);
-        }
+        },
 
         #[allow(clippy::manual_range_patterns)]
         -1 | 0 | 1 => { /* balanced */ }
