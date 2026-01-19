@@ -34,6 +34,8 @@ mod interval;
 mod iter;
 mod node;
 mod tree;
+#[cfg(feature = "closest")]
+pub mod closeness;
 
 pub use tree::*;
 

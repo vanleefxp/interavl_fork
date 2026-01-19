@@ -1,5 +1,7 @@
 use std::{cmp::Ordering, fmt::Debug, ops::Range};
 
+#[cfg(feature = "closest")]
+use crate::closeness::Closeness;
 use crate::interval::Interval;
 
 #[derive(Debug)]
@@ -321,7 +323,131 @@ impl<R, V> Node<R, V> {
     pub(crate) fn into_tuple(self) -> (Range<R>, V) {
         (self.interval.into_range(), self.value)
     }
+
+    /// Return a reference to the [`Interval`] and value `V` of this [`Node`].
+    pub(crate) fn as_tuple(&self) -> (&Range<R>, &V) {
+        (self.interval.as_range(), &self.value)
+    }
 }
+
+impl<R, V> Node<R, V> where R: Ord {
+    /// Find the node with smallest start point greater than `value`
+    pub(crate) fn successor_min_start(&self, value: &R) -> Option<&Self> {
+        match self.interval.start().cmp(value) {
+            Ordering::Greater => {
+                // Check if left subtree has a smaller candidate
+                if let Some(left) = self.left() {
+                    if let Some(res) = left.successor_min_start(value) {
+                        return Some(res);
+                    }
+                }
+                // Return the current node itself
+                Some(self)
+            }
+            _ => {
+                // Continue searching in the right subtree
+                self.right().and_then(|n| n.successor_min_start(value))
+            }
+        }
+    }
+
+    /// Find the node with greatest start point less than `value`
+    pub(crate) fn predecessor_max_start(&self, value: &R) -> Option<&Self> {
+        match self.interval.start().cmp(value) {
+            Ordering::Less => {
+                // Current node is valid, try to find a larger candidate in right subtree
+                if let Some(right) = self.right() {
+                    if let Some(res) = right.predecessor_max_start(value) {
+                        return Some(res);
+                    }
+                }
+                // No larger candidate in right subtree, return current node
+                Some(self)
+            }
+            _ => {
+                // Current node is invalid, search in left subtree
+                self.left().and_then(|n| n.predecessor_max_start(value))
+            }
+        }
+    }
+
+    /// Find the node with smallest end point greater than `value`
+    pub(crate) fn successor_min_end(&self, value: &R) -> Option<&Self> {
+        match self.interval.end().cmp(value) {
+            Ordering::Greater => {
+                // Current node is valid, try to find a smaller candidate in left subtree
+                if let Some(left) = self.left() {
+                    if let Some(res) = left.successor_min_end(value) {
+                        return Some(res);
+                    }
+                }
+                // No smaller candidate in left subtree, return current node
+                Some(self)
+            }
+            _ => {
+                // Current node is invalid, search in right subtree
+                self.right().and_then(|n| n.successor_min_end(value))
+            }
+        }
+    }
+
+    /// Find the node with greatest end point less than `value`
+    pub(crate) fn predecessor_max_end(&self, value: &R) -> Option<&Self> {
+        match self.interval.end().cmp(value) {
+            Ordering::Less => {
+                // Current node is valid, try to find a larger candidate in right subtree
+                if let Some(right) = self.right() {
+                    if let Some(res) = right.predecessor_max_end(value) {
+                        return Some(res);
+                    }
+                }
+                // No larger candidate in right subtree, return current node
+                Some(self)
+            }
+            _ => {
+                // Current node is invalid, search in left subtree
+                self.left().and_then(|n| n.predecessor_max_end(value))
+            }
+        }
+    }
+}
+
+#[cfg(feature = "closest")]
+impl<R, V> Node<R, V> where R: Ord + Closeness {
+    pub(crate) fn closest_by_start(&self, value: &R) -> Option<&Self> {
+        let prev = self.predecessor_max_start(value);
+        let next = self.successor_min_start(value);
+        match (prev, next) {
+            (None, None) => None,
+            (result @ Some(_), None) | (None, result @ Some(_)) => result,
+            (Some(e1), Some(e2)) => {
+                use Ordering::*;
+                match value.closeness(e1.interval.start(), e2.interval.start()) {
+                    Less | Equal => prev,
+                    Greater => next,
+                }
+            }
+        }
+    }
+
+    pub(crate) fn closest_by_end(&self, value: &R) -> Option<&Self> {
+        let prev = self.predecessor_max_end(value);
+        let next = self.successor_min_end(value);
+        match (prev, next) {
+            (None, None) => None,
+            (result @ Some(_), None) | (None, result @ Some(_)) => result,
+            (Some(e1), Some(e2)) => {
+                use Ordering::*;
+                match value.closeness(e1.interval.end(), e2.interval.end()) {
+                    Less | Equal => prev,
+                    Greater => next,
+                }
+            }
+        }
+    }
+}
+
+
 
 fn height<R, V>(n: Option<&Node<R, V>>) -> u8 {
     n.map(|v| v.height()).unwrap_or_default()

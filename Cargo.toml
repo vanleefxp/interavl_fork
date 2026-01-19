@@ -18,6 +18,7 @@ serde = { version = "1.0.228", optional = true }
 
 [features]
 serde = ["dep:serde"]
+closest = []
 
 [dev-dependencies]
 criterion = "0.8.1"

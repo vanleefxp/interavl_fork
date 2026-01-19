@@ -1,12 +1,10 @@
-use std::{fmt::Debug, ops::Range};
+use std::{fmt::Debug, ops::Range, cmp::Ordering};
 
 use crate::{
-    interval::Interval,
-    iter::{
+    closeness::Closeness, interval::Interval, iter::{
         ContainsPruner, DuringPruner, FinishesPruner, MeetsPruner, MetByPruner, OverlapsPruner,
         OwnedIter, PrecededByPruner, PrecedesPruner, PruningIter, RefIter, StartsPruner,
-    },
-    node::{remove_recurse, Node, RemoveResult},
+    }, node::{Node, RemoveResult, remove_recurse}
 };
 
 /// An [`IntervalTree`] stores `(interval, value)` tuple mappings, enabling
@@ -335,12 +333,94 @@ where
             .flat_map(|v| PruningIter::new(v, range, ContainsPruner))
             .map(|v| (v.interval().as_range(), v.value()))
     }
+}
+
+impl<R, V> IntervalTree<R, V> where R: Ord {
+
+    pub fn entry_max_end(&self) -> Option<(&Range<R>, &V)> {
+        self.0.as_ref().and_then(|root| Some(root.as_tuple()))
+    }
+
+    pub fn successor_min_start(&self, value: &R) -> Option<(&Range<R>, &V)> {
+        self.0.as_ref().and_then(|root| Some(root.successor_min_start(value)?.as_tuple()))
+    }
+
+    pub fn predecessor_max_start(&self, value: &R) -> Option<(&Range<R>, &V)> {
+        self.0.as_ref().and_then(|root| Some(root.predecessor_max_start(value)?.as_tuple()))
+    }
+
+    pub fn successor_min_end(&self, value: &R) -> Option<(&Range<R>, &V)> {
+        self.0.as_ref().and_then(|root| Some(root.successor_min_end(value)?.as_tuple()))
+    }
+
+    pub fn predecessor_max_end(&self, value: &R) -> Option<(&Range<R>, &V)> {
+        self.0.as_ref().and_then(|root| Some(root.predecessor_max_end(value)?.as_tuple()))
+    }
+
+    pub fn next_interval_start(&self, value: &R) -> Option<&R> {
+        self.successor_min_start(value).map(|(range, _)| &range.start)
+    }
+
+    pub fn next_interval_end(&self, value: &R) -> Option<&R> {
+        self.successor_min_end(value).map(|(range, _)| &range.end)
+    }
+
+    pub fn prev_interval_start(&self, value: &R) -> Option<&R> {
+        self.predecessor_max_start(value).map(|(range, _)| &range.start)
+    }
+
+    pub fn prev_interval_end(&self, value: &R) -> Option<&R> {
+        self.predecessor_max_end(value).map(|(range, _)| &range.end)
+    }
 
     /// Return the maximum interval' end/stop (right-end) stored in the tree.
     /// If the tree is empty, e.g., contains no thing, [`None`] is returned.
     /// Otherwise, an immutable reference to the maximum end value is returned.
     pub fn max_interval_end(&self) -> Option<&R> {
         self.0.as_ref().map(|root| root.subtree_max())
+    }
+}
+
+#[cfg(feature = "closest")]
+impl<R, V> IntervalTree<R, V> where R: Ord + Closeness {
+    pub fn closest_by_start<T>(&self, value: &R, distance: impl Fn(&R, &R) -> T) -> Option<(&Range<R>, &V)> where T: Ord {
+        let prev = self.predecessor_max_start(value);
+        let next = self.successor_min_start(value);
+        match (prev, next) {
+            (None, None) => None,
+            (result @ Some(_), None) | (None, result @ Some(_)) => result,
+            (Some(e1), Some(e2)) => {
+                use Ordering::*;
+                match distance(&e1.0.start, value).cmp(&distance(&e2.0.start, value)) {
+                    Less | Equal => prev,
+                    Greater => next,
+                }
+            }
+        }
+    }
+
+    pub fn closest_by_end<T>(&self, value: &R, distance: impl Fn(&R, &R) -> T) -> Option<(&Range<R>, &V)> where T: Ord {
+        let prev = self.predecessor_max_end(value);
+        let next = self.successor_min_end(value);
+        match (prev, next) {
+            (None, None) => None,
+            (result @ Some(_), None) | (None, result @ Some(_)) => result,
+            (Some(e1), Some(e2)) => {
+                use Ordering::*;
+                match distance(&e1.0.end, value).cmp(&distance(&e2.0.end, value)) {
+                    Less | Equal => prev,
+                    Greater => next,
+                }
+            }
+        }
+    }
+
+    pub fn closest_interval_start<T>(&self, value: &R, distance: impl Fn(&R, &R) -> T) -> Option<&R> where T: Ord {
+        self.closest_by_start(value, distance).map(|(range, _)| &range.start)
+    }
+
+    pub fn closest_interval_end<T>(&self, value: &R, distance: impl Fn(&R, &R) -> T) -> Option<&R> where T: Ord {
+        self.closest_by_end(value, distance).map(|(range, _)| &range.end)
     }
 }
 
@@ -363,14 +443,13 @@ impl<R, V> std::iter::IntoIterator for IntervalTree<R, V> {
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::{HashMap, HashSet},
-        sync::{atomic::AtomicUsize, Arc},
+        collections::{HashMap, HashSet}, sync::{Arc, atomic::AtomicUsize}
     };
 
     use proptest::prelude::*;
 
     use super::*;
-    use crate::{interval, test_utils::{Lfsr, NodeFilterCount, arbitrary_range}};
+    use crate::{test_utils::{Lfsr, NodeFilterCount, arbitrary_range}};
 
     #[test]
     fn test_insert_contains() {
@@ -398,16 +477,37 @@ mod tests {
         let mut t = IntervalTree::default();
         t.insert(1..2, 0);
         t.insert(2..4, 1);
-        t.insert(2..5, 2);
+        t.insert(3..5, 2);
         t.insert(2..4, 3);
 
         for (interval, &value) in t.iter() {
             println!("{}..{} {}", interval.start, interval.end, value);
         }
-
         println!();
+
         for (interval, &value) in t.iter_contains(&(2..3)) {
             println!("{}..{} {}", interval.start, interval.end, value);
+        }
+        println!();
+    }
+
+    #[test]
+    fn test_successor_predecessor() {
+        let mut t = IntervalTree::default();
+        t.insert(1..6, 0);
+        t.insert(5..7, 1);
+        t.insert(3..4, 2);
+        t.insert(2..5, 4);
+        t.insert(2..4, 3);
+
+        for i in 0..=8 {
+            let node = t.predecessor_max_start(&i);
+            match node {
+                Some((range, value)) => {
+                    println!("{} -> {}..{} {}", i, range.start, range.end, value);
+                },
+                None => println!("{i} -> None"),
+            }
         }
     }
 
