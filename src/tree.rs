@@ -383,44 +383,20 @@ impl<R, V> IntervalTree<R, V> where R: Ord {
 
 #[cfg(feature = "closest")]
 impl<R, V> IntervalTree<R, V> where R: Ord + Closeness {
-    pub fn closest_by_start<T>(&self, value: &R, distance: impl Fn(&R, &R) -> T) -> Option<(&Range<R>, &V)> where T: Ord {
-        let prev = self.predecessor_max_start(value);
-        let next = self.successor_min_start(value);
-        match (prev, next) {
-            (None, None) => None,
-            (result @ Some(_), None) | (None, result @ Some(_)) => result,
-            (Some(e1), Some(e2)) => {
-                use Ordering::*;
-                match distance(&e1.0.start, value).cmp(&distance(&e2.0.start, value)) {
-                    Less | Equal => prev,
-                    Greater => next,
-                }
-            }
-        }
+    pub fn closest_by_start(&self, value: &R) -> Option<(&Range<R>, &V)> {
+        self.0.as_ref()?.closest_by_start(value).map(|node| node.as_tuple())
     }
 
-    pub fn closest_by_end<T>(&self, value: &R, distance: impl Fn(&R, &R) -> T) -> Option<(&Range<R>, &V)> where T: Ord {
-        let prev = self.predecessor_max_end(value);
-        let next = self.successor_min_end(value);
-        match (prev, next) {
-            (None, None) => None,
-            (result @ Some(_), None) | (None, result @ Some(_)) => result,
-            (Some(e1), Some(e2)) => {
-                use Ordering::*;
-                match distance(&e1.0.end, value).cmp(&distance(&e2.0.end, value)) {
-                    Less | Equal => prev,
-                    Greater => next,
-                }
-            }
-        }
+    pub fn closest_by_end(&self, value: &R) -> Option<(&Range<R>, &V)> {
+        self.0.as_ref()?.closest_by_end(value).map(|node| node.as_tuple())
     }
 
-    pub fn closest_interval_start<T>(&self, value: &R, distance: impl Fn(&R, &R) -> T) -> Option<&R> where T: Ord {
-        self.closest_by_start(value, distance).map(|(range, _)| &range.start)
+    pub fn closest_interval_start(&self, value: &R) -> Option<&R> {
+        self.closest_by_start(value).map(|(range, _)| &range.start)
     }
 
-    pub fn closest_interval_end<T>(&self, value: &R, distance: impl Fn(&R, &R) -> T) -> Option<&R> where T: Ord {
-        self.closest_by_end(value, distance).map(|(range, _)| &range.end)
+    pub fn closest_interval_end(&self, value: &R) -> Option<&R> {
+        self.closest_by_end(value).map(|(range, _)| &range.end)
     }
 }
 
