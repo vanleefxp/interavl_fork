@@ -1,35 +1,23 @@
 use std::{cmp::Ordering, fmt::Display, ops::Range};
 
+use derive_more::{Deref, DerefMut, From, Into};
+
 /// A totally-ordered interval, convertible from and infallibly comparable to a
 /// [`Range`].
 ///
 /// An [`Interval`] is ordered by the [`Range`] lower bound, and tie-braked with
 /// the upper bound.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Deref, DerefMut, Hash, From, Into)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub(crate) struct Interval<T>(Range<T>);
-
-impl<T> Interval<T> {
-    pub(crate) fn start(&self) -> &T {
-        &self.0.start
-    }
-    pub(crate) fn end(&self) -> &T {
-        &self.0.end
-    }
-    pub(crate) fn as_range(&self) -> &Range<T> {
-        &self.0
-    }
-    pub(crate) fn into_range(self) -> Range<T> {
-        self.0
-    }
-}
+#[repr(transparent)]
+pub struct Interval<T>(Range<T>);
 
 impl<T> Display for Interval<T>
 where
     T: Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}..{}", self.start(), self.end())
+        write!(f, "{}..{}", self.start, self.end)
     }
 }
 
@@ -113,12 +101,6 @@ where
 {
     fn eq(&self, other: &Range<T>) -> bool {
         self.0.start == other.start && self.0.end == other.end
-    }
-}
-
-impl<T> From<Range<T>> for Interval<T> {
-    fn from(value: Range<T>) -> Self {
-        Self(value)
     }
 }
 
@@ -268,9 +250,9 @@ mod tests {
             let interval = Interval::from(r.clone());
 
             // Reversing the conversion yields the input.
-            assert_eq!(r, *interval.as_range());
-            assert_eq!(r.start, interval.0.start);
-            assert_eq!(r.end, *interval.end());
+            assert_eq!(r, *interval);
+            assert_eq!(r.start, interval.start);
+            assert_eq!(r.end, interval.end);
 
             // Intervals are equal with ranges.
             assert_eq!(interval, r);
@@ -356,7 +338,7 @@ mod tests {
                     truthy += 1;
                 }
 
-                if v.is_empty() || interval.as_range().is_empty() {
+                if v.is_empty() || interval.is_empty() {
                     continue;
                 }
 
@@ -364,17 +346,17 @@ mod tests {
                     1 => {}
                     2 if interval.overlaps(v) && interval.during(v) => {}
                     3 if interval.overlaps(v) && interval.during(v) && interval.starts(v) => {
-                        assert_eq!(*interval.start(), v.start);
+                        assert_eq!(interval.start, v.start);
                     }
                     3 if interval.overlaps(v) && interval.during(v) && interval.finishes(v) => {
-                        assert_eq!(*interval.end(), v.end);
+                        assert_eq!(interval.end, v.end);
                     }
                     2 if interval.overlaps(v) && interval.contains(v) => {}
                     3 if interval.overlaps(v) && interval.contains(v) && interval.starts(v) => {
-                        assert_eq!(*interval.start(), v.start);
+                        assert_eq!(interval.start, v.start);
                     }
                     3 if interval.overlaps(v) && interval.contains(v) && interval.finishes(v) => {
-                        assert_eq!(*interval.end(), v.end);
+                        assert_eq!(interval.end, v.end);
                     }
                     5 if interval.overlaps(v)
                         && interval.starts(v)
@@ -382,10 +364,10 @@ mod tests {
                         && interval.contains(v)
                         && interval.during(v) =>
                     {
-                        assert_eq!(interval.as_range(), v)
+                        assert_eq!(&interval, v)
                     }
                     _ if v.start > v.end => { /* invalid query range */ }
-                    _ if interval.start() > interval.end() => { /* invalid interval */ }
+                    _ if interval.start > interval.end => { /* invalid interval */ }
                     _ => panic!("non-exclusive relation found"),
                 }
             }

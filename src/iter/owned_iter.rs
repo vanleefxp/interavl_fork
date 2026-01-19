@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use crate::node::Node;
 
 /// An iterator of owned [`Node`] instances as the underlying tree `into_iter()`
@@ -32,7 +30,7 @@ impl<R, V> OwnedIter<R, V> {
 }
 
 impl<R, V> Iterator for OwnedIter<R, V> {
-    type Item = (Range<R>, V);
+    type Item = Node<R, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut v = self.stack.pop()?;
@@ -43,6 +41,6 @@ impl<R, V> Iterator for OwnedIter<R, V> {
             self.push_subtree(right);
         }
 
-        Some(v.into_tuple())
+        Some(*v)
     }
 }

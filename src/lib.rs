@@ -38,6 +38,9 @@ mod tree;
 pub mod closeness;
 
 pub use tree::*;
+pub use node::*;
+pub use interval::*;
+
 
 #[cfg(test)]
 mod test_utils;

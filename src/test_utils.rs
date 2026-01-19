@@ -9,14 +9,14 @@ use std::{
 
 use proptest::prelude::*;
 
-use crate::{iter::PruningOracle, node::Node};
+use crate::{Interval, iter::PruningOracle, node::Node};
 
 const RANGE_MAX: usize = 20;
 
 /// Generate arbitrary (potentially invalid!) ranges with bounds from
 /// [0..[`RANGE_MAX`]).
-pub(crate) fn arbitrary_range() -> impl Strategy<Value = Range<usize>> {
-    (0..RANGE_MAX, 0..RANGE_MAX).prop_map(|(start, end)| Range { start, end })
+pub(crate) fn arbitrary_range() -> impl Strategy<Value = Interval<usize>> {
+    (0..RANGE_MAX, 0..RANGE_MAX).prop_map(|(start, end)| Interval::from(start..end))
 }
 
 #[allow(unused)]
@@ -49,9 +49,9 @@ where
     writeln!(
         buf,
         r#""{}" [label="{} | {} | {{ max={} | h={} }}"];"#,
-        n.interval(),
-        n.interval(),
-        n.value(),
+        n.interval,
+        n.interval,
+        n.value,
         n.subtree_max(),
         n.height(),
     )
@@ -63,19 +63,19 @@ where
                 writeln!(
                     buf,
                     "\"{}\" -> \"{}\" [color = \"orange1\";];",
-                    n.interval(),
-                    v.interval()
+                    n.interval,
+                    v.interval
                 )
                 .unwrap();
                 recurse(v, buf);
             }
             None => {
-                writeln!(buf, "\"null_{}\" [shape=point,style=invis];", n.interval()).unwrap();
+                writeln!(buf, "\"null_{}\" [shape=point,style=invis];", n.interval).unwrap();
                 writeln!(
                     buf,
                     "\"{}\" -> \"null_{}\" [style=invis];",
-                    n.interval(),
-                    n.interval()
+                    n.interval,
+                    n.interval
                 )
                 .unwrap();
             }

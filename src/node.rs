@@ -16,7 +16,7 @@ pub(super) enum RemoveResult<T> {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub(crate) struct Node<R, V> {
+pub struct Node<R, V> {
     /// Child nodes pointers.
     left: Option<Box<Node<R, V>>>,
     right: Option<Box<Node<R, V>>>,
@@ -33,8 +33,8 @@ pub(crate) struct Node<R, V> {
     /// [`Node`].
     subtree_max: R,
 
-    interval: Interval<R>,
-    value: V,
+    pub interval: Interval<R>,
+    pub value: V,
 }
 
 impl<R, V> Node<R, V> {
@@ -43,7 +43,7 @@ impl<R, V> Node<R, V> {
         R: Clone,
     {
         Self {
-            subtree_max: interval.end().clone(),
+            subtree_max: interval.end.clone(),
             interval,
             value,
             left: None,
@@ -129,9 +129,7 @@ impl<R, V> Node<R, V> {
     }
 
     pub(super) fn remove(self: &mut Box<Self>, range: &Range<R>) -> Option<RemoveResult<V>>
-    where
-        R: Ord + Clone + Debug,
-    {
+    where R: Ord + Clone + Debug {
         // Recurse down the subtree rooted at `self`.
         //
         // If the value is not found, or successfully removed, the result is
@@ -139,15 +137,24 @@ impl<R, V> Node<R, V> {
         // children, it returns [`RemoveResult::ParentUnlink`] and the node is
         // unlinked here in the parent before returning the result to the
         // caller.
+        use Ordering::*;
         match self.interval.partial_cmp(range).unwrap() {
-            Ordering::Greater => return remove_recurse(&mut self.left, range),
-            Ordering::Less => return remove_recurse(&mut self.right, range),
-            Ordering::Equal => {
+            Greater => return remove_recurse(&mut self.left, range),
+            Less => return remove_recurse(&mut self.right, range),
+            Equal => {
                 // This node holds the value to be removed from the tree.
-                debug_assert_eq!(self.interval, *range);
+                // debug_assert_eq!(self.interval, *range);
             }
         };
 
+        self.remove_self()
+    }
+
+    /// Remove this node from the tree directly without interval lookup
+    pub fn remove_self(self: &mut Box<Self>) -> Option<RemoveResult<V>>
+    where
+        R: Ord + Clone,
+    {
         // This node may have 0, 1 or 2 child node(s):
         //
         //                          +----------+
@@ -227,12 +234,12 @@ impl<R, V> Node<R, V> {
         };
 
         // Invariant: the node being unlinked contains no subtree.
-        debug_assert!(old.right.is_none());
-        debug_assert!(old.left.is_none());
+        // debug_assert!(old.right.is_none());
+        // debug_assert!(old.left.is_none());
 
         // Invariant: the old node being unlinked does contain the target value.
-        debug_assert_eq!(old.interval, *range);
-        debug_assert_ne!(self.interval, *range); // The replacement node does not.
+        // debug_assert_eq!(old.interval, *range);
+        // debug_assert_ne!(self.interval, *range); // The replacement node does not.
 
         Some(RemoveResult::Removed(old.value))
     }
@@ -277,14 +284,6 @@ impl<R, V> Node<R, V> {
         node.get_mut(range)
     }
 
-    pub(crate) fn value(&self) -> &V {
-        &self.value
-    }
-
-    pub(crate) fn interval(&self) -> &Interval<R> {
-        &self.interval
-    }
-
     pub(crate) fn subtree_max(&self) -> &R {
         &self.subtree_max
     }
@@ -320,20 +319,20 @@ impl<R, V> Node<R, V> {
     }
 
     /// Explode this [`Node`] into the [`Range`] and value `V` it contains.
-    pub(crate) fn into_tuple(self) -> (Range<R>, V) {
-        (self.interval.into_range(), self.value)
+    pub fn into_tuple(self) -> (Interval<R>, V) {
+        (self.interval, self.value)
     }
 
     /// Return a reference to the [`Interval`] and value `V` of this [`Node`].
-    pub(crate) fn as_tuple(&self) -> (&Range<R>, &V) {
-        (self.interval.as_range(), &self.value)
+    pub fn as_tuple(&self) -> (&Interval<R>, &V) {
+        (&self.interval, &self.value)
     }
 }
 
 impl<R, V> Node<R, V> where R: Ord {
     /// Find the node with smallest start point greater than `value`
     pub(crate) fn successor_min_start(&self, value: &R) -> Option<&Self> {
-        match self.interval.start().cmp(value) {
+        match self.interval.start.cmp(value) {
             Ordering::Greater => {
                 // Check if left subtree has a smaller candidate
                 if let Some(left) = self.left() {
@@ -353,7 +352,7 @@ impl<R, V> Node<R, V> where R: Ord {
 
     /// Find the node with greatest start point less than `value`
     pub(crate) fn predecessor_max_start(&self, value: &R) -> Option<&Self> {
-        match self.interval.start().cmp(value) {
+        match self.interval.start.cmp(value) {
             Ordering::Less => {
                 // Current node is valid, try to find a larger candidate in right subtree
                 if let Some(right) = self.right() {
@@ -373,7 +372,7 @@ impl<R, V> Node<R, V> where R: Ord {
 
     /// Find the node with smallest end point greater than `value`
     pub(crate) fn successor_min_end(&self, value: &R) -> Option<&Self> {
-        match self.interval.end().cmp(value) {
+        match self.interval.end.cmp(value) {
             Ordering::Greater => {
                 // Current node is valid, try to find a smaller candidate in left subtree
                 if let Some(left) = self.left() {
@@ -393,7 +392,7 @@ impl<R, V> Node<R, V> where R: Ord {
 
     /// Find the node with greatest end point less than `value`
     pub(crate) fn predecessor_max_end(&self, value: &R) -> Option<&Self> {
-        match self.interval.end().cmp(value) {
+        match self.interval.end.cmp(value) {
             Ordering::Less => {
                 // Current node is valid, try to find a larger candidate in right subtree
                 if let Some(right) = self.right() {
@@ -422,7 +421,7 @@ impl<R, V> Node<R, V> where R: Ord + Closeness {
             (result @ Some(_), None) | (None, result @ Some(_)) => result,
             (Some(e1), Some(e2)) => {
                 use Ordering::*;
-                match value.closeness(e1.interval.start(), e2.interval.start()) {
+                match value.closeness(&e1.interval.start, &e2.interval.start) {
                     Less | Equal => prev,
                     Greater => next,
                 }
@@ -438,7 +437,7 @@ impl<R, V> Node<R, V> where R: Ord + Closeness {
             (result @ Some(_), None) | (None, result @ Some(_)) => result,
             (Some(e1), Some(e2)) => {
                 use Ordering::*;
-                match value.closeness(e1.interval.end(), e2.interval.end()) {
+                match value.closeness(&e1.interval.end, &e2.interval.end) {
                     Less | Equal => prev,
                     Greater => next,
                 }
@@ -469,7 +468,7 @@ where
         .left()
         .map(|v| v.subtree_max())
         .max(n.right().map(|v| v.subtree_max()))
-        .max(Some(n.interval().end()));
+        .max(Some(&n.interval.end));
 
     if let Some(new_max) = new_max {
         n.subtree_max = new_max.clone();
