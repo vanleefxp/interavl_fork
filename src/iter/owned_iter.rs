@@ -30,7 +30,7 @@ impl<R, V> OwnedIter<R, V> {
 }
 
 impl<R, V> Iterator for OwnedIter<R, V> {
-    type Item = Node<R, V>;
+    type Item = Box<Node<R, V>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut v = self.stack.pop()?;
@@ -41,6 +41,6 @@ impl<R, V> Iterator for OwnedIter<R, V> {
             self.push_subtree(right);
         }
 
-        Some(*v)
+        Some(v)
     }
 }

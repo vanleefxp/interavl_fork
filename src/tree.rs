@@ -1,10 +1,7 @@
 use std::{fmt::Debug, ops::Range};
 
 use crate::{
-    closeness::Closeness, interval::Interval, iter::{
-        ContainsPruner, DuringPruner, FinishesPruner, MeetsPruner, MetByPruner, OverlapsPruner,
-        OwnedIter, PrecededByPruner, PrecedesPruner, PruningIter, RefIter, StartsPruner,
-    }, node::{Node, RemoveResult, remove_recurse}
+    closeness::Closeness, interval::Interval, iter::OwnedIter, node::{Node, RemoveResult, remove_recurse}
 };
 
 /// An [`IntervalTree`] stores `(interval, value)` tuple mappings, enabling
@@ -58,7 +55,7 @@ pub struct IntervalTree<R, V>(Option<Box<Node<R, V>>>);
 // impl<'a, R, V> Entry<'a, R, V> {
 //     /// Returns the interval associated with this entry
 //     pub fn interval(&self) -> &Range<R> {
-//         &self.node.interval
+//         &self.node.interval()
 //     }
 
 //     /// Returns the value associated with this entry
@@ -146,10 +143,10 @@ where
     ///
     /// The returned [`Iterator`] yields values from lowest to highest ordered
     /// by the interval lower bound, with ties broken by the upper bound.
-    pub fn iter(&self) -> impl Iterator<Item = &Node<R, V>> {
+    pub fn iter(&self) -> impl Iterator<Item = &Box<Node<R, V>>> {
         self.0
             .iter()
-            .flat_map(|v| RefIter::new(v))
+            .flat_map(|v| v.iter())
     }
 
     /// Return all `(interval, value)` tuples that have intervals which overlap
@@ -169,10 +166,10 @@ where
     pub fn iter_overlaps<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Node<R, V>> {
+    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
         self.0
             .iter()
-            .flat_map(|v| PruningIter::new(v, range, OverlapsPruner))
+            .flat_map(|v| v.iter_overlaps(range))
     }
 
     /// Return all `(interval, value)` tuples that have intervals which precede
@@ -192,10 +189,10 @@ where
     pub fn iter_precedes<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Node<R, V>> {
+    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
         self.0
             .iter()
-            .flat_map(|v| PruningIter::new(v, range, PrecedesPruner))
+            .flat_map(|v| v.iter_precedes(range))
     }
 
     /// Return all `(interval, value)` tuples that have intervals which are
@@ -215,10 +212,10 @@ where
     pub fn iter_preceded_by<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Node<R, V>> {
+    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
         self.0
             .iter()
-            .flat_map(|v| PruningIter::new(v, range, PrecededByPruner))
+            .flat_map(|v| v.iter_preceded_by(range))
     }
 
     /// Return all `(interval, value)` tuples that have intervals which meet the
@@ -238,10 +235,10 @@ where
     pub fn iter_meets<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Node<R, V>> {
+    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
         self.0
             .iter()
-            .flat_map(|v| PruningIter::new(v, range, MeetsPruner))
+            .flat_map(|v| v.iter_meets(range))
     }
 
     /// Return all `(interval, value)` tuples that have intervals which are met
@@ -261,10 +258,10 @@ where
     pub fn iter_met_by<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Node<R, V>> {
+    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
         self.0
             .iter()
-            .flat_map(|v| PruningIter::new(v, range, MetByPruner))
+            .flat_map(|v| v.iter_met_by(range))
     }
 
     /// Return all `(interval, value)` tuples that have intervals which are
@@ -284,10 +281,10 @@ where
     pub fn iter_starts<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Node<R, V>> {
+    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
         self.0
             .iter()
-            .flat_map(|v| PruningIter::new(v, range, StartsPruner))
+            .flat_map(|v| v.iter_starts(range))
     }
 
     /// Return all `(interval, value)` tuples that have intervals which are
@@ -307,10 +304,10 @@ where
     pub fn iter_finishes<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Node<R, V>> {
+    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
         self.0
             .iter()
-            .flat_map(|v| PruningIter::new(v, range, FinishesPruner))
+            .flat_map(|v| v.iter_finishes(range))
     }
 
     /// Return all `(interval, value)` tuples that have intervals which are
@@ -330,10 +327,10 @@ where
     pub fn iter_during<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Node<R, V>> {
+    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
         self.0
             .iter()
-            .flat_map(|v| PruningIter::new(v, range, DuringPruner))
+            .flat_map(|v| v.iter_during(range))
     }
 
     /// Return all `(interval, value)` tuples that have intervals which are
@@ -353,17 +350,17 @@ where
     pub fn iter_contains<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Node<R, V>> {
+    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
         self.0
             .iter()
-            .flat_map(|v| PruningIter::new(v, range, ContainsPruner))
+            .flat_map(|v| v.iter_contains(range))
     }
 }
 
 macro_rules! impl_method_from_node {
     ($($name:ident),*$(,)?) => {
         impl<R, V> IntervalTree<R, V> where R: Ord {
-            $(pub fn $name(&self, value: &R) -> Option<&Node<R, V>> {
+            $(pub fn $name(&self, value: &R) -> Option<&Box<Node<R, V>>> {
                 self.0.as_ref().and_then(|v| v.$name(value))
             })*
         }
@@ -371,10 +368,10 @@ macro_rules! impl_method_from_node {
 }
 
 impl_method_from_node!(
-    successor_min_start,
-    predecessor_max_start,
-    successor_min_end,
-    predecessor_max_end,
+    successor_by_start,
+    predecessor_by_start,
+    // successor_by_end,
+    // predecessor_by_end,
 );
 
 macro_rules! impl_method_get_bound {
@@ -382,7 +379,7 @@ macro_rules! impl_method_get_bound {
         impl<R, V> IntervalTree<R, V> where R: Ord {
             $(
                 pub fn $get_bound_method_name(&self, value: &R) -> Option<&R> {
-                    self.$get_node_method_name(value).map(|node| &node.interval.$bound)
+                    self.$get_node_method_name(value).map(|node| &node.interval().$bound)
                 }
             )*
         }
@@ -390,10 +387,10 @@ macro_rules! impl_method_get_bound {
 }
 
 impl_method_get_bound!(
-    prev_interval_start, predecessor_max_start, start;
-    next_interval_start, successor_min_start, start;
-    prev_interval_end, predecessor_max_end, end;
-    next_interval_end, successor_min_end, end;
+    prev_interval_start, predecessor_by_start, start;
+    next_interval_start, successor_by_start, start;
+    // prev_interval_end, predecessor_by_end, end;
+    // next_interval_end, successor_by_end, end;
 );
 
 impl<R, V> IntervalTree<R, V> where R: Ord {
@@ -412,21 +409,21 @@ impl<R, V> IntervalTree<R, V> where R: Ord {
 
 #[cfg(feature = "closest")]
 impl<R, V> IntervalTree<R, V> where R: Ord + Closeness {
-    pub fn closest_by_start(&self, value: &R) -> Option<&Node<R, V>> {
+    pub fn closest_by_start(&self, value: &R) -> Option<&Box<Node<R, V>>> {
         self.0.as_ref()?.closest_by_start(value)
     }
 
-    pub fn closest_by_end(&self, value: &R) -> Option<&Node<R, V>> {
-        self.0.as_ref()?.closest_by_end(value)
-    }
+    // pub fn closest_by_end(&self, value: &R) -> Option<&Box<Node<R, V>>> {
+    //     self.0.as_ref()?.closest_by_end(value)
+    // }
 
     pub fn closest_interval_start(&self, value: &R) -> Option<&R> {
-        self.closest_by_start(value).map(|Node { interval, ..}| &interval.start)
+        self.closest_by_start(value).map(|node| &node.interval().start)
     }
 
-    pub fn closest_interval_end(&self, value: &R) -> Option<&R> {
-        self.closest_by_end(value).map(|Node { interval, .. }| &interval.end)
-    }
+    // pub fn closest_interval_end(&self, value: &R) -> Option<&R> {
+    //     self.closest_by_end(value).map(|node| &node.interval().end)
+    // }
 }
 
 /// Take ownership of this [`IntervalTree`] instance and iterate over all
@@ -437,7 +434,7 @@ impl<R, V> IntervalTree<R, V> where R: Ord + Closeness {
 /// The returned [`Iterator`] yields values from lowest to highest ordered by
 /// the interval lower bound, with ties broken by the upper bound.
 impl<R, V> std::iter::IntoIterator for IntervalTree<R, V> {
-    type Item = Node<R, V>;
+    type Item = Box<Node<R, V>>;
     type IntoIter = OwnedIter<R, V>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -448,13 +445,13 @@ impl<R, V> std::iter::IntoIterator for IntervalTree<R, V> {
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::{HashMap, HashSet}, ops::Deref, sync::{Arc, atomic::AtomicUsize}
+        collections::{HashMap, HashSet}, sync::{Arc, atomic::AtomicUsize}
     };
 
     use proptest::prelude::*;
 
     use super::*;
-    use crate::{test_utils::{Lfsr, NodeFilterCount, arbitrary_range}};
+    use crate::{test_utils::{Lfsr, NodeFilterCount, arbitrary_range}, iter::*};
 
     #[test]
     fn test_insert_contains() {
@@ -485,36 +482,39 @@ mod tests {
         t.insert(3..5, 2);
         t.insert(2..4, 3);
 
-        for Node {interval, value, ..} in t.iter() {
-            println!("{} {}", interval, value);
+        for node in t.iter().map(Box::as_ref) {
+            println!("{} {}", node.interval(), node.value());
         }
         println!();
 
-        for Node {interval, value, ..} in t.iter_contains(&(2..3)) {
-            println!("{} {}", interval, value);
+        for node in t.iter_contains(&(2..3)).map(Box::as_ref) {
+            println!("{} {}", node.interval(), node.value());
         }
         println!();
     }
 
-    #[test]
-    fn test_successor_predecessor() {
-        let mut t = IntervalTree::default();
-        t.insert(1..6, 0);
-        t.insert(5..7, 1);
-        t.insert(3..4, 2);
-        t.insert(2..5, 4);
-        t.insert(2..4, 3);
+    // #[test]
+    // fn test_successor_predecessor() {
+    //     let mut t = IntervalTree::default();
+    //     t.insert(1..6, 0);
+    //     t.insert(5..7, 1);
+    //     t.insert(3..4, 2);
+    //     t.insert(2..5, 4);
+    //     t.insert(2..4, 3);
 
-        for i in 0..=8 {
-            let node = t.predecessor_max_start(&i);
-            match node {
-                Some(Node {interval, value, ..}) => {
-                    println!("{} -> {} {}", i, interval, value);
-                },
-                None => println!("{i} -> None"),
-            }
-        }
-    }
+    //     dbg!(&t);
+
+    //     for i in 0..=8 {
+    //         // let query_range = i..i;
+    //         let node = t.successor_by_end(&i);
+    //         match node {
+    //             Some(node) => {
+    //                 println!("{} -> {} {}", i, node.interval(), node.value());
+    //             },
+    //             None => println!("{i} -> None"),
+    //         }
+    //     }
+    // }
 
     /// Ensure inserting references as the tree value is supported.
     #[test]
@@ -783,7 +783,7 @@ mod tests {
                 // that were visited after pruning.
                 let n_filtered = Arc::new(AtomicUsize::new(0));
                 let iter = PruningIter::new(
-                    $t.0.as_deref().unwrap(),
+                    $t.0.as_ref().unwrap(),
                     &Range { start: 42, end: 1042 },
                     NodeFilterCount::new($ty, Arc::clone(&n_filtered)),
                 );
@@ -871,7 +871,7 @@ mod tests {
                         // Collect the iterator tuples.
                         let got = t
                             .[<iter_ $name>](&query)
-                            .map(|v| &v.interval)
+                            .map(|v| v.interval())
                             .filter(|v| is_sane_interval(v))
                             .collect::<HashSet<_>>();
 
@@ -908,7 +908,7 @@ mod tests {
         R: Ord + PartialEq + Debug + Clone,
         V: Debug,
     {
-        let root = match t.0.as_deref() {
+        let root = match t.0.as_ref() {
             Some(v) => v,
             None => return,
         };
@@ -926,14 +926,14 @@ mod tests {
             // less than this node.
             assert!(n
                 .left()
-                .map(|v| v.interval < n.interval)
+                .map(|v| v.interval() < n.interval())
                 .unwrap_or(true));
 
             // Invariant 2: the right child always contains a value striggctly
             // greater than this node.
             assert!(n
                 .right()
-                .map(|v| v.interval > n.interval)
+                .map(|v| v.interval() > n.interval())
                 .unwrap_or(true));
 
             // Invariant 3: the height of this node is always +1 of the
@@ -949,7 +949,7 @@ mod tests {
                 n.height(),
                 want_height,
                 "expect node with interval {:?} to have height {}, has {}",
-                n.interval,
+                n.interval(),
                 want_height,
                 n.height(),
             );
@@ -976,7 +976,7 @@ mod tests {
                 .left()
                 .map(|v| v.subtree_max())
                 .max(n.right().map(|v| v.subtree_max()));
-            let want_max = child_max.max(Some(&n.interval.end)).unwrap();
+            let want_max = child_max.max(Some(&n.interval().end)).unwrap();
             assert_eq!(want_max, n.subtree_max());
 
             // Track the maximum end value across all nodes, with the value

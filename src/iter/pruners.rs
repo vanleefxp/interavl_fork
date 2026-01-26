@@ -10,11 +10,11 @@ where
     R: Ord,
 {
     fn visit_right(&self, subtree_root: &Node<R, V>, query: &Range<R>) -> bool {
-        query.end > subtree_root.interval.start
+        query.end > subtree_root.interval().start
     }
 
     fn filter_yield(&self, n: &Node<R, V>, query: &Range<R>) -> bool {
-        n.interval.overlaps(query)
+        n.interval().overlaps(query)
     }
 }
 
@@ -24,11 +24,11 @@ where
     R: Ord,
 {
     fn visit_right(&self, subtree_root: &Node<R, V>, query: &Range<R>) -> bool {
-        query.start >= subtree_root.interval.start
+        query.start >= subtree_root.interval().start
     }
 
     fn filter_yield(&self, n: &Node<R, V>, query: &Range<R>) -> bool {
-        n.interval.meets(query)
+        n.interval().meets(query)
     }
 }
 
@@ -38,11 +38,11 @@ where
     R: Ord,
 {
     fn visit_right(&self, subtree_root: &Node<R, V>, query: &Range<R>) -> bool {
-        query.start > subtree_root.interval.start
+        query.start > subtree_root.interval().start
     }
 
     fn filter_yield(&self, n: &Node<R, V>, query: &Range<R>) -> bool {
-        n.interval.precedes(query)
+        n.interval().precedes(query)
     }
 }
 
@@ -56,7 +56,7 @@ where
     }
 
     fn filter_yield(&self, n: &Node<R, V>, query: &Range<R>) -> bool {
-        n.interval.preceded_by(query)
+        n.interval().preceded_by(query)
     }
 }
 
@@ -70,7 +70,7 @@ where
     }
 
     fn filter_yield(&self, n: &Node<R, V>, query: &Range<R>) -> bool {
-        n.interval.met_by(query)
+        n.interval().met_by(query)
     }
 }
 
@@ -80,11 +80,11 @@ where
     R: Ord,
 {
     fn visit_right(&self, subtree_root: &Node<R, V>, query: &Range<R>) -> bool {
-        query.start >= subtree_root.interval.start
+        query.start >= subtree_root.interval().start
     }
 
     fn filter_yield(&self, n: &Node<R, V>, query: &Range<R>) -> bool {
-        n.interval.starts(query)
+        n.interval().starts(query)
     }
 }
 
@@ -98,7 +98,7 @@ where
     }
 
     fn filter_yield(&self, n: &Node<R, V>, query: &Range<R>) -> bool {
-        n.interval.finishes(query)
+        n.interval().finishes(query)
     }
 }
 
@@ -108,11 +108,11 @@ where
     R: Ord,
 {
     fn visit_right(&self, subtree_root: &Node<R, V>, query: &Range<R>) -> bool {
-        query.end >= subtree_root.interval.start
+        query.end >= subtree_root.interval().start
     }
 
     fn filter_yield(&self, n: &Node<R, V>, query: &Range<R>) -> bool {
-        n.interval.during(query)
+        n.interval().during(query)
     }
 }
 
@@ -122,10 +122,10 @@ where
     R: Ord,
 {
     fn visit_right(&self, subtree_root: &Node<R, V>, query: &Range<R>) -> bool {
-        query.start >= subtree_root.interval.start
+        query.start >= subtree_root.interval().start
     }
 
     fn filter_yield(&self, n: &Node<R, V>, query: &Range<R>) -> bool {
-        n.interval.contains(query)
+        n.interval().contains(query)
     }
 }

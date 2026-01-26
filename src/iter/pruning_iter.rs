@@ -17,7 +17,7 @@ pub(crate) trait PruningOracle<R, V> {
 #[derive(Debug)]
 pub(crate) struct PruningIter<'a, R, V, T> {
     query: &'a Range<R>,
-    stack: Vec<&'a Node<R, V>>,
+    stack: Vec<&'a Box<Node<R, V>>>,
     pruner: T,
 }
 
@@ -26,7 +26,7 @@ where
     R: Ord,
     T: PruningOracle<R, V>,
 {
-    pub(crate) fn new(root: &'a Node<R, V>, query: &'a Range<R>, pruner: T) -> Self {
+    pub(crate) fn new(root: &'a Box<Node<R, V>>, query: &'a Range<R>, pruner: T) -> Self {
         let mut this = Self {
             stack: vec![],
             query,
@@ -40,7 +40,7 @@ where
         this
     }
 
-    fn push_subtree(&mut self, subtree_root: &'a Node<R, V>) {
+    fn push_subtree(&mut self, subtree_root: &'a Box<Node<R, V>>) {
         let mut ptr = Some(subtree_root);
 
         while let Some(v) = ptr {
@@ -55,7 +55,7 @@ where
     R: Ord,
     T: PruningOracle<R, V>,
 {
-    type Item = &'a Node<R, V>;
+    type Item = &'a Box<Node<R, V>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {

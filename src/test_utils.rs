@@ -49,9 +49,9 @@ where
     writeln!(
         buf,
         r#""{}" [label="{} | {} | {{ max={} | h={} }}"];"#,
-        n.interval,
-        n.interval,
-        n.value,
+        n.interval(),
+        n.interval(),
+        n.value(),
         n.subtree_max(),
         n.height(),
     )
@@ -63,19 +63,19 @@ where
                 writeln!(
                     buf,
                     "\"{}\" -> \"{}\" [color = \"orange1\";];",
-                    n.interval,
-                    v.interval
+                    n.interval(),
+                    v.interval()
                 )
                 .unwrap();
                 recurse(v, buf);
             }
             None => {
-                writeln!(buf, "\"null_{}\" [shape=point,style=invis];", n.interval).unwrap();
+                writeln!(buf, "\"null_{}\" [shape=point,style=invis];", n.interval()).unwrap();
                 writeln!(
                     buf,
                     "\"{}\" -> \"null_{}\" [style=invis];",
-                    n.interval,
-                    n.interval
+                    n.interval(),
+                    n.interval()
                 )
                 .unwrap();
             }

@@ -1,8 +1,9 @@
 use std::{cmp::Ordering, fmt::Debug, ops::Range};
+use paste::paste;
 
 #[cfg(feature = "closest")]
 use crate::closeness::Closeness;
-use crate::interval::Interval;
+use crate::{interval::Interval, iter::*};
 
 #[derive(Debug)]
 pub(super) enum RemoveResult<T> {
@@ -33,8 +34,8 @@ pub struct Node<R, V> {
     /// [`Node`].
     subtree_max: R,
 
-    pub interval: Interval<R>,
-    pub value: V,
+    interval: Interval<R>,
+    value: V,
 }
 
 impl<R, V> Node<R, V> {
@@ -50,6 +51,22 @@ impl<R, V> Node<R, V> {
             right: None,
             height: 0,
         }
+    }
+
+    pub fn interval(&self) -> &Interval<R> {
+        &self.interval
+    }
+
+    pub fn range(&self) -> &Range<R> {
+        &self.interval
+    }
+
+    pub fn value(&self) -> &V {
+        &self.value
+    }
+
+    pub fn value_mut(&mut self) -> &mut V {
+        &mut self.value
     }
 
     pub(crate) fn insert(self: &mut Box<Self>, interval: Interval<R>, value: V) -> Option<V>
@@ -151,7 +168,7 @@ impl<R, V> Node<R, V> {
     }
 
     /// Remove this node from the tree directly without interval lookup
-    pub fn remove_self(self: &mut Box<Self>) -> Option<RemoveResult<V>>
+    pub(super) fn remove_self(self: &mut Box<Self>) -> Option<RemoveResult<V>>
     where
         R: Ord + Clone,
     {
@@ -292,8 +309,8 @@ impl<R, V> Node<R, V> {
         self.height
     }
 
-    pub(crate) fn left(&self) -> Option<&Self> {
-        self.left.as_deref()
+    pub(crate) fn left(&self) -> Option<&Box<Self>> {
+        self.left.as_ref()
     }
 
     pub(crate) fn left_mut(&mut self) -> Option<&mut Box<Self>> {
@@ -305,8 +322,8 @@ impl<R, V> Node<R, V> {
         self.left.take()
     }
 
-    pub(crate) fn right(&self) -> Option<&Self> {
-        self.right.as_deref()
+    pub(crate) fn right(&self) -> Option<&Box<Self>> {
+        self.right.as_ref()
     }
 
     pub(crate) fn right_mut(&mut self) -> Option<&mut Box<Self>> {
@@ -329,14 +346,37 @@ impl<R, V> Node<R, V> {
     }
 }
 
+macro_rules! impl_pruning_iters {
+    ($($op:ident),*$(,)?) => {
+        paste! {
+            impl <R, V> Node<R, V> where R: Ord {
+                $(
+                    pub(crate) fn [<iter_ $op:snake>]<'a>(
+                        self: &'a Box<Self>,
+                        range: &'a Range<R>,
+                    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
+                        PruningIter::new(self, range, [<$op:camel Pruner>])
+                    }
+                )*
+            }
+        }
+    };
+}
+
+impl_pruning_iters!(overlaps, precedes, preceded_by, meets, met_by, starts, finishes, during, contains);
+
 impl<R, V> Node<R, V> where R: Ord {
+    pub(crate) fn iter(self: &Box<Self>) -> impl Iterator<Item = &Box<Node<R, V>>> {
+        RefIter::new(self)
+    }
+
     /// Find the node with smallest start point greater than `value`
-    pub(crate) fn successor_min_start(&self, value: &R) -> Option<&Self> {
+    pub(crate) fn successor_by_start(self: &Box<Self>, value: &R) -> Option<&Box<Self>> {
         match self.interval.start.cmp(value) {
             Ordering::Greater => {
                 // Check if left subtree has a smaller candidate
                 if let Some(left) = self.left() {
-                    if let Some(res) = left.successor_min_start(value) {
+                    if let Some(res) = left.successor_by_start(value) {
                         return Some(res);
                     }
                 }
@@ -345,18 +385,18 @@ impl<R, V> Node<R, V> where R: Ord {
             }
             _ => {
                 // Continue searching in the right subtree
-                self.right().and_then(|n| n.successor_min_start(value))
+                self.right().and_then(|n| n.successor_by_start(value))
             }
         }
     }
 
     /// Find the node with greatest start point less than `value`
-    pub(crate) fn predecessor_max_start(&self, value: &R) -> Option<&Self> {
+    pub(crate) fn predecessor_by_start(self: &Box<Self>, value: &R) -> Option<&Box<Self>> {
         match self.interval.start.cmp(value) {
             Ordering::Less => {
                 // Current node is valid, try to find a larger candidate in right subtree
                 if let Some(right) = self.right() {
-                    if let Some(res) = right.predecessor_max_start(value) {
+                    if let Some(res) = right.predecessor_by_start(value) {
                         return Some(res);
                     }
                 }
@@ -365,57 +405,73 @@ impl<R, V> Node<R, V> where R: Ord {
             }
             _ => {
                 // Current node is invalid, search in left subtree
-                self.left().and_then(|n| n.predecessor_max_start(value))
+                self.left().and_then(|n| n.predecessor_by_start(value))
             }
         }
     }
 
-    /// Find the node with smallest end point greater than `value`
-    pub(crate) fn successor_min_end(&self, value: &R) -> Option<&Self> {
-        match self.interval.end.cmp(value) {
-            Ordering::Greater => {
-                // Current node is valid, try to find a smaller candidate in left subtree
-                if let Some(left) = self.left() {
-                    if let Some(res) = left.successor_min_end(value) {
-                        return Some(res);
-                    }
-                }
-                // No smaller candidate in left subtree, return current node
-                Some(self)
-            }
-            _ => {
-                // Current node is invalid, search in right subtree
-                self.right().and_then(|n| n.successor_min_end(value))
-            }
-        }
-    }
+    // /// Find the node with smallest end point greater than `value`
+    // pub(crate) fn successor_by_end(self: &Box<Self>, value: &R) -> Option<&Box<Self>> {
+    //     // [FIXME]
+    //     use Ordering::*;
+    //     match self.subtree_max.cmp(value) {
+    //         Greater => {
+    //             if let Some(left) = self.left() {
+    //                 match left.subtree_max.cmp(&self.subtree_max) {
+    //                     Less => {
+    //                         let result_left = left.successor_by_end(value);
+    //                         if result_left.is_some() {
+    //                             return result_left;
+    //                         }
+    //                     },
+    //                     Equal => {},
+    //                     Greater => unreachable!(),
+    //                 }
+    //             }
+    //             if let Some(right) = self.right() {
+    //                 match right.subtree_max.cmp(&self.subtree_max) {
+    //                     Less => {
+    //                         let result_right = right.successor_by_end(value);
+    //                         if result_right.is_some() {
+    //                             return result_right;
+    //                         }
+    //                     },
+    //                     Equal => {},
+    //                     Greater => unreachable!(),
+    //                 }
+    //             }
+    //             Some(self)
+    //         },
+    //         _ => None,
+    //     }
+    // }
 
-    /// Find the node with greatest end point less than `value`
-    pub(crate) fn predecessor_max_end(&self, value: &R) -> Option<&Self> {
-        match self.interval.end.cmp(value) {
-            Ordering::Less => {
-                // Current node is valid, try to find a larger candidate in right subtree
-                if let Some(right) = self.right() {
-                    if let Some(res) = right.predecessor_max_end(value) {
-                        return Some(res);
-                    }
-                }
-                // No larger candidate in right subtree, return current node
-                Some(self)
-            }
-            _ => {
-                // Current node is invalid, search in left subtree
-                self.left().and_then(|n| n.predecessor_max_end(value))
-            }
-        }
-    }
+    // /// Find the node with greatest end point less than `value`
+    // pub(crate) fn predecessor_by_end(self: &Box<Self>, value: &R) -> Option<&Box<Self>> {
+    //     use Ordering::*;
+    //     let candidates = [
+    //         match self.interval.end.cmp(value) {
+    //             Less => Some(self),
+    //             _ => None,
+    //         },
+    //         self.left().map(|v| v.predecessor_by_end(value)).flatten(),
+    //         match self.right() {
+    //             None => None,
+    //             Some(right) => match right.interval.start.cmp(value) {
+    //                 Less => right.predecessor_by_end(value),
+    //                 _ => None,
+    //             }
+    //         },
+    //     ];
+    //     candidates.into_iter().flatten().max_by_key(|node| &node.interval.end)
+    // }
 }
 
 #[cfg(feature = "closest")]
 impl<R, V> Node<R, V> where R: Ord + Closeness {
-    pub(crate) fn closest_by_start(&self, value: &R) -> Option<&Self> {
-        let prev = self.predecessor_max_start(value);
-        let next = self.successor_min_start(value);
+    pub(crate) fn closest_by_start(self: &Box<Self>, value: &R) -> Option<&Box<Self>> {
+        let prev = self.predecessor_by_start(value);
+        let next = self.successor_by_start(value);
         match (prev, next) {
             (None, None) => None,
             (result @ Some(_), None) | (None, result @ Some(_)) => result,
@@ -429,21 +485,21 @@ impl<R, V> Node<R, V> where R: Ord + Closeness {
         }
     }
 
-    pub(crate) fn closest_by_end(&self, value: &R) -> Option<&Self> {
-        let prev = self.predecessor_max_end(value);
-        let next = self.successor_min_end(value);
-        match (prev, next) {
-            (None, None) => None,
-            (result @ Some(_), None) | (None, result @ Some(_)) => result,
-            (Some(e1), Some(e2)) => {
-                use Ordering::*;
-                match value.closeness(&e1.interval.end, &e2.interval.end) {
-                    Less | Equal => prev,
-                    Greater => next,
-                }
-            }
-        }
-    }
+    // pub(crate) fn closest_by_end(self: &Box<Self>, value: &R) -> Option<&Box<Self>> {
+    //     let prev = self.predecessor_by_end(value);
+    //     let next = self.successor_by_end(value);
+    //     match (prev, next) {
+    //         (None, None) => None,
+    //         (result @ Some(_), None) | (None, result @ Some(_)) => result,
+    //         (Some(e1), Some(e2)) => {
+    //             use Ordering::*;
+    //             match value.closeness(&e1.interval.end, &e2.interval.end) {
+    //                 Less | Equal => prev,
+    //                 Greater => next,
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 
@@ -482,7 +538,7 @@ where
 fn balance<R, V>(n: &Node<R, V>) -> i8 {
     // Correctness: the height is a u8, the maximal value of which fits in an
     // i16 without truncation or sign inversion.
-    (height(n.left()) as i16 - height(n.right()) as i16) as i8
+    (height(n.left.as_deref()) as i16 - height(n.right.as_deref()) as i16) as i8
 }
 
 /// Left rotate the given subtree rooted at `x` around the pivot point `P`.
@@ -635,14 +691,14 @@ where
 
     // And rebalance the subtree.
     match balance(v) {
-        2.. if v.left().map(balance).unwrap_or_default() >= 0 => {
+        2.. if v.left.as_deref().map(balance).unwrap_or_default() >= 0 => {
             rotate_right(v);
         },
         2.. => {
             v.left_mut().map(rotate_left);
             rotate_right(v);
         },
-        ..=-2 if v.right().map(balance).unwrap_or_default() <= 0 => {
+        ..=-2 if v.right.as_deref().map(balance).unwrap_or_default() <= 0 => {
             rotate_left(v);
         },
         ..=-2 => {
