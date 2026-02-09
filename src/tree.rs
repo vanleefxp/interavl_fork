@@ -442,6 +442,14 @@ impl<R, V> std::iter::IntoIterator for IntervalTree<R, V> {
     }
 }
 
+impl<R, S, V> Extend<(S, V)> for IntervalTree<R, V> where R: Ord + Clone + Debug, S: Into<Interval<R>> {
+    fn extend<T: IntoIterator<Item = (S, V)>>(&mut self, iter: T) {
+        for (range, value) in iter {
+            self.insert(range.into(), value);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
