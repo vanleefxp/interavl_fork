@@ -1,7 +1,7 @@
 use std::{fmt::Debug, ops::Range};
 
 use crate::{
-    closeness::Closeness, interval::Interval, iter::OwnedIter, node::{Node, RemoveResult, remove_recurse}
+    IntervalTreeIterator, closeness::Closeness, interval::Interval, iter::OwnedIter, node::{Node, RemoveResult, remove_recurse}
 };
 
 /// An [`IntervalTree`] stores `(interval, value)` tuple mappings, enabling
@@ -143,7 +143,7 @@ where
     ///
     /// The returned [`Iterator`] yields values from lowest to highest ordered
     /// by the interval lower bound, with ties broken by the upper bound.
-    pub fn iter(&self) -> impl Iterator<Item = &Box<Node<R, V>>> {
+    pub fn iter(&self) -> impl IntervalTreeIterator<'_, R, V> {
         self.0
             .iter()
             .flat_map(|v| v.iter())
@@ -166,7 +166,7 @@ where
     pub fn iter_overlaps<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
+    ) -> impl IntervalTreeIterator<'a, R, V> {
         self.0
             .iter()
             .flat_map(|v| v.iter_overlaps(range))
@@ -189,7 +189,7 @@ where
     pub fn iter_precedes<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
+    ) -> impl IntervalTreeIterator<'a, R, V> {
         self.0
             .iter()
             .flat_map(|v| v.iter_precedes(range))
@@ -212,7 +212,7 @@ where
     pub fn iter_preceded_by<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
+    ) -> impl IntervalTreeIterator<'a, R, V> {
         self.0
             .iter()
             .flat_map(|v| v.iter_preceded_by(range))
@@ -235,7 +235,7 @@ where
     pub fn iter_meets<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
+    ) -> impl IntervalTreeIterator<'a, R, V> {
         self.0
             .iter()
             .flat_map(|v| v.iter_meets(range))
@@ -258,7 +258,7 @@ where
     pub fn iter_met_by<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
+    ) -> impl IntervalTreeIterator<'a, R, V> {
         self.0
             .iter()
             .flat_map(|v| v.iter_met_by(range))
@@ -281,7 +281,7 @@ where
     pub fn iter_starts<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
+    ) -> impl IntervalTreeIterator<'a, R, V> {
         self.0
             .iter()
             .flat_map(|v| v.iter_starts(range))
@@ -304,7 +304,7 @@ where
     pub fn iter_finishes<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
+    ) -> impl IntervalTreeIterator<'a, R, V> {
         self.0
             .iter()
             .flat_map(|v| v.iter_finishes(range))
@@ -327,7 +327,7 @@ where
     pub fn iter_during<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
+    ) -> impl IntervalTreeIterator<'a, R, V> {
         self.0
             .iter()
             .flat_map(|v| v.iter_during(range))
@@ -350,7 +350,7 @@ where
     pub fn iter_contains<'a>(
         &'a self,
         range: &'a Range<R>,
-    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
+    ) -> impl IntervalTreeIterator<'a, R, V> {
         self.0
             .iter()
             .flat_map(|v| v.iter_contains(range))

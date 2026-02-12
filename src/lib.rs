@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+// #![feature(new_range_api)]
 #![deny(rustdoc::broken_intra_doc_links, rust_2018_idioms)]
 #![allow(clippy::default_constructed_unit_structs)]
 #![warn(
@@ -40,6 +41,7 @@ pub mod closeness;
 pub use tree::*;
 pub use node::*;
 pub use interval::*;
+pub use iter::*;
 
 
 #[cfg(test)]

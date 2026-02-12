@@ -40,3 +40,6 @@ impl<'a, R, V> Iterator for RefIter<'a, R, V> {
         Some(v)
     }
 }
+
+// TODO: implement a method `next_mut` so that user can get the mutable borrow of `Box<Node<R, V>>`
+// after calling `next_mut` the iterator will not be valid anymore.

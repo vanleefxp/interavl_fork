@@ -35,7 +35,7 @@ pub struct Node<R, V> {
     subtree_max: R,
 
     interval: Interval<R>,
-    value: V,
+    pub value: V,
 }
 
 impl<R, V> Node<R, V> {
@@ -354,7 +354,7 @@ macro_rules! impl_pruning_iters {
                     pub(crate) fn [<iter_ $op:snake>]<'a>(
                         self: &'a Box<Self>,
                         range: &'a Range<R>,
-                    ) -> impl Iterator<Item = &'a Box<Node<R, V>>> {
+                    ) -> impl IntervalTreeIterator<'a, R, V> {
                         PruningIter::new(self, range, [<$op:camel Pruner>])
                     }
                 )*
@@ -366,7 +366,7 @@ macro_rules! impl_pruning_iters {
 impl_pruning_iters!(overlaps, precedes, preceded_by, meets, met_by, starts, finishes, during, contains);
 
 impl<R, V> Node<R, V> where R: Ord {
-    pub(crate) fn iter(self: &Box<Self>) -> impl Iterator<Item = &Box<Node<R, V>>> {
+    pub(crate) fn iter(self: &Box<Self>) -> impl IntervalTreeIterator<'_, R, V> {
         RefIter::new(self)
     }
 
