@@ -21,7 +21,7 @@ pub trait IntervalTreeIterator<'a, R: 'a, V: 'a>: Iterator<Item = &'a Box<Node<R
         self.map(|node| &node.value)
     }
 
-    fn tuples(self) -> impl Iterator<Item = (&'a Range<R>, &'a V)> {
+    fn entries(self) -> impl Iterator<Item = (&'a Range<R>, &'a V)> {
         self.map(|node| (node.range(), &node.value))
     }
 }
